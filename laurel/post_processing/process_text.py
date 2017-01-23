@@ -3,7 +3,9 @@ import collections
 from nltk.corpus import PlaintextCorpusReader, movie_reviews, stopwords
 from nltk.classify import NaiveBayesClassifier
 import nltk.classify.util
-import nltk.metrics
+from nltk.metrics import *
+from nltk import precision
+from nltk import recall
 from os import path
 
 dir_path = path.dirname(path.realpath(__file__))
@@ -43,50 +45,57 @@ def word_feats():
 
 def movie_words(sentiment):
     sentiment_words = movie_reviews.fileids(sentiment)
-    words = []
+    words = {}
     for file_id in sentiment_words:
         for word in movie_reviews.words(file_id):
-            words.append(word.lower())
+            words[word.lower()] = True
 
     return words
 
 def evaluate_classifier(featx):
     #print(featx)
+    neg_dict = movie_words('neg')
+    pos_dict = movie_words('pos')
 
     negfeats = []
     posfeats = []
     for word in featx:
-        if word in movie_words('neg'):
-            #print("negative match: " + word)
-            negfeats.append(word)
-        if word in movie_words('pos'):
-            #print("positive match: " + word)
-            posfeats.append(word)
+        try:
+            neg_dict[word]
+            negfeats.append(({word: True}, 'neg'))
+        except KeyError:
+            print(word + " Missing from negative")
 
-    print(negfeats)
-    print(posfeats)
+        try:
+            pos_dict[word]
+            posfeats.append(({word: True}, 'neg'))
+        except KeyError:
+            print(word + " Missing from positive")
 
-    negcutoff = len(negfeats)*3/4
-    poscutoff = len(posfeats)*3/4
+    negcutoff = len(negfeats)*3//4
+    poscutoff = len(posfeats)*3//4
 
-    # trainfeats = negfeats[:negcutoff] + posfeats[:poscutoff]
-    # testfeats = negfeats[negcutoff:] + posfeats[poscutoff:]
-    #
-    # classifier = NaiveBayesClassifier.train(trainfeats)
-    # refsets = collections.defaultdict(set)
-    # testsets = collections.defaultdict(set)
-    #
-    # for i, (feats, label) in enumerate(testfeats):
-    #         refsets[label].add(i)
-    #         observed = classifier.classify(feats)
-    #         testsets[observed].add(i)
-    #
-    # print('accuracy:', nltk.classify.util.accuracy(classifier, testfeats))
-    # print('pos precision:', nltk.metrics.precision(refsets['pos'], testsets['pos']))
-    # print('pos recall:', nltk.metrics.recall(refsets['pos'], testsets['pos']))
-    # print('neg precision:', nltk.metrics.precision(refsets['neg'], testsets['neg']))
-    # print('neg recall:', nltk.metrics.recall(refsets['neg'], testsets['neg']))
-    # classifier.show_most_informative_features()
+    print(negcutoff)
+    print(poscutoff)
+
+    trainfeats = negfeats[:negcutoff] + posfeats[:poscutoff]
+    testfeats = negfeats[negcutoff:] + posfeats[poscutoff:]
+
+    classifier = NaiveBayesClassifier.train(trainfeats)
+    refsets = collections.defaultdict(set)
+    testsets = collections.defaultdict(set)
+
+    for i, (feats, label) in enumerate(testfeats):
+            refsets[label].add(i)
+            observed = classifier.classify(feats)
+            testsets[observed].add(i)
+
+    print('accuracy:', nltk.classify.util.accuracy(classifier, testfeats))
+    print('pos precision:', precision(refsets['pos'], testsets['pos']))
+    print('pos recall:', recall(refsets['pos'], testsets['pos']))
+    print('neg precision:', precision(refsets['neg'], testsets['neg']))
+    print('neg recall:', recall(refsets['neg'], testsets['neg']))
+    classifier.show_most_informative_features()
 
 evaluate_classifier(word_feats())
 
